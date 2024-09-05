@@ -1,0 +1,30 @@
+#Ignore IDE
+.vscode/
+
+#Ignore data
+data/
+
+#Ignore readme 
+README.MD
+
+#Ignore element properties
+element_properties/
+
+#Ignore engine files
+*.engine
+
+#Ignore resources
+resources/
+
+#Ignore scripts
+get_data.sh
+
+#Ignore txt
+*.txt
+!labels.txt
+
+#Ignore License
+LICENSE
+
+#Ignore trash
+trash
