@@ -59,3 +59,4 @@ yolov8:
 clean:
 	rm -rf $(OBJS) $(APP)
 	cd custom_parsers/nvdsinfer_custom_impl_Yolo && $(MAKE) clean
+	cd custom_parsers/nvds_customparser_yolov8 && $(MAKE) clean

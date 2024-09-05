@@ -9,11 +9,11 @@
 #include "nvbufsurface.h"
 
 #ifndef PLATFORM_TEGRA
-  #include "gst-nvmessage.h"
+#include "gst-nvmessage.h"
 #endif
 
 #include <cuda.h>
- 
+
 #include <string>
 #include <fstream>
 #include <cmath>
@@ -59,11 +59,12 @@ using namespace std::chrono;
  * pads having this capability will push GstBuffers containing cuda buffers. */
 #define GST_CAPS_FEATURES_NVMM "memory:NVMM"
 
-#define CHECK_ERROR(error) \
-    if (error) { \
-        g_printerr ("Error while parsing config file: %s\n", error->message); \
-        goto done; \
-    }
+#define CHECK_ERROR(error)                                               \
+  if (error)                                                             \
+  {                                                                      \
+    g_printerr("Error while parsing config file: %s\n", error->message); \
+    goto done;                                                           \
+  }
 
 #define CONFIG_GROUP_TRACKER "tracker"
 #define CONFIG_GROUP_TRACKER_WIDTH "tracker-width"
