@@ -28,3 +28,9 @@ LICENSE
 
 #Ignore trash
 trash
+
+#Ignore .so
+*.so
+
+#Ignore executables
+ds-yolov8
