@@ -93,22 +93,22 @@ namespace YOLOv8
   {
 
     NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)obj_meta_data;
-#ifndef PLATFORM_TEGRA
-    obj_meta->rect_params.has_bg_color = has_bg_color;
-    obj_meta->rect_params.bg_color.red = red;
-    obj_meta->rect_params.bg_color.green = green;
-    obj_meta->rect_params.bg_color.blue = blue;
-    obj_meta->rect_params.bg_color.alpha = alpha;
-#endif
-    obj_meta->rect_params.border_color.red = red;
-    obj_meta->rect_params.border_color.green = green;
-    obj_meta->rect_params.border_color.blue = blue;
-    obj_meta->rect_params.border_color.alpha = alpha;
-    obj_meta->text_params.font_params.font_size = 14;
+  #ifndef PLATFORM_TEGRA
+      obj_meta->rect_params.has_bg_color = has_bg_color;
+      obj_meta->rect_params.bg_color.red = red;
+      obj_meta->rect_params.bg_color.green = green;
+      obj_meta->rect_params.bg_color.blue = blue;
+      obj_meta->rect_params.bg_color.alpha = alpha;
+  #endif
+      obj_meta->rect_params.border_color.red = red;
+      obj_meta->rect_params.border_color.green = green;
+      obj_meta->rect_params.border_color.blue = blue;
+      obj_meta->rect_params.border_color.alpha = alpha;
+      obj_meta->text_params.font_params.font_size = 8 * MULTIPLIER;
   }
 
   void
-  Odin::addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data)
+  Odin::addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data, bool aruco)
   {
 
     NvDsBatchMeta *batch_meta = (NvDsBatchMeta *)batch_meta_data;
@@ -122,8 +122,6 @@ namespace YOLOv8
     // Initialize display_meta
     display_meta->num_labels = 0;  // Reset label count
     display_meta->num_lines = 0;   // Reset line count
-    display_meta->num_circles = 0; // Reset circle count
-    display_meta->num_arrows = 0;
 
     // Add FPS information
     txt_params = &display_meta->text_params[display_meta->num_labels];
@@ -134,11 +132,11 @@ namespace YOLOv8
     offset = snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "Source: %d | FPS: %d",
                       frame_meta->source_id, fps[frame_meta->source_id].display_fps);
 
-    txt_params->x_offset = 10;
-    txt_params->y_offset = 12;
+    txt_params->x_offset = 10*MULTIPLIER;
+    txt_params->y_offset = 12*MULTIPLIER;
 
     txt_params->font_params.font_name = (char *)"Serif";
-    txt_params->font_params.font_size = 4;
+    txt_params->font_params.font_size = 6 * MULTIPLIER;
     txt_params->font_params.font_color.red = 1.0;
     txt_params->font_params.font_color.green = 1.0;
     txt_params->font_params.font_color.blue = 1.0;
@@ -160,7 +158,7 @@ namespace YOLOv8
         continue;
 
       // Calculate or retrieve the speed of the object
-      double speed = calculate_object_speed(obj_meta);
+      double speed = calculate_object_speed(obj_meta, aruco);
       float max_speed = 750.0;
       float red = 0.0;
       float green = 0.0;
@@ -198,7 +196,7 @@ namespace YOLOv8
 
       // Set font, color, and background properties
       txt_params->font_params.font_name = (char *)"Serif";
-      txt_params->font_params.font_size = 4;
+      txt_params->font_params.font_size = 6 * MULTIPLIER;
       txt_params->font_params.font_color.red = 1.0;
       txt_params->font_params.font_color.green = 1.0;
       txt_params->font_params.font_color.blue = 1.0;
@@ -226,13 +224,13 @@ namespace YOLOv8
         line_params->y1 = y_points[i];
         line_params->x2 = x_points[i + 1];
         line_params->y2 = y_points[i + 1];
-        float grad = 0.0;
+        float min_ = 0.0;
         // Set the line color and width
-        line_params->line_width = 4; // Example: Set line width to 2 pixels
+        line_params->line_width = 4*MULTIPLIER; // Example: Set line width to 2 pixels
         line_params->line_color.red = red;
         line_params->line_color.green = green;
         line_params->line_color.blue = blue;
-        line_params->line_color.alpha = grad + ((1 - grad) * i) / (x_points.size() - 1);
+        line_params->line_color.alpha = min_ + ((1 - min_) * i) / (x_points.size() - 1);
 
         // Increment the line count
         display_meta->num_lines++;
@@ -242,7 +240,7 @@ namespace YOLOv8
   }
 
   double
-  Odin::calculate_object_speed(NvDsObjectMeta *obj_meta)
+  Odin::calculate_object_speed(NvDsObjectMeta *obj_meta, bool aruco)
   {
     int object_id = obj_meta->object_id;
     auto now = std::chrono::system_clock::now();
@@ -250,65 +248,48 @@ namespace YOLOv8
 
     // Calculate time elapsed
     std::chrono::duration<double> elapsed_seconds = now - data.prev_time;
-    double last_speed = data.speeds.getMostRecentValue();
 
-    if (elapsed_seconds.count() < 0.0)
-    {
-      return last_speed;
-    }
-
-    double size_of_obj = sqrt(obj_meta->rect_params.width * obj_meta->rect_params.width +
-                              obj_meta->rect_params.height * obj_meta->rect_params.height) /
-                         2.0;
-
-    double current_x = obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0;
-    double current_y = obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0;
-
-    if (data.first_frame)
-    {
-      data.prev_x.addValue(current_x);
-      data.prev_y.addValue(current_y);
-      data.prev_time = now;
-      data.first_frame = false;
-      return 0.0;
+    // If first frame, initialize previous coordinates and time
+    if (data.first_frame) {
+        data.prev_x.addValue(obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0);
+        data.prev_y.addValue(obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0);
+        data.prev_time = now;
+        data.first_frame = false;
+        return 0.0;  // No distance can be calculated from a single frame
     }
 
     // Get the previous coordinates
     double prev_x = data.prev_x.getMostRecentValue();
     double prev_y = data.prev_y.getMostRecentValue();
 
-    // Calculate distance traveled
-    double dx = current_x - prev_x;
-    double dy = current_y - prev_y;
-    dy = 0.0; // Set dy to 0 to focus on horizontal movement
-    double distance = sqrt(dx * dx + dy * dy);
-    distance = dx; // Assuming you want to consider only horizontal distance
+    // Current coordinates
+    double current_x = obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0;
+    double current_y = obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0;
+
+    // Calculate horizontal distance traveled
+    double distance = current_x - prev_x;
 
     // Update previous data
     data.prev_x.addValue(current_x);
     data.prev_y.addValue(current_y);
     data.prev_time = now;
 
-    // Calculate speed
-    double speed = distance / elapsed_seconds.count();
-
-    // Update speed buffer
-    data.speeds.addValue(speed);
-
-    // Print the speed for debugging purposes
-    // g_print("speed is %.2f\n", data.speeds.getAverage());
-    // g_print("distance is %.2f, time elapsed is %.2f, speed is %.2f\n", distance, elapsed_seconds.count(), speed);
-    // data.prev_x.printQueue();
-    // g_print("prev_x is %.2f, prev_y is %.2f, current_x is %.2f, current_y is %.2f\n", prev_x, prev_y, current_x, current_y);
-
-    // Return the average speed
-    return abs(data.speeds.getAverage());
-    return obj_meta->rect_params.height;
+    // Return the distance traveled
+    return abs(distance);
   }
 
-  void
-  Odin::display_frame_from_metadata(NvDsFrameMeta *frame_meta)
+  bool
+  Odin::display_frame_from_metadata(NvDsBatchMeta* batch_meta, NvDsFrameMeta *frame_meta, NvBufSurface *surface)
   {
+    // Access the NvBufSurfaceParams for the specific frame
+    NvBufSurfaceParams *surface_params = &surface->surfaceList[frame_meta->batch_id];
+    g_print("Width: %d, Height: %d\n", surface_params->width, surface_params->height);
+    g_print("Frame Number: %d\n", frame_meta->frame_num);
+    std::cout<<surface_params->dataSize<<std::endl;
+    // std::cout<<surface_params->colorFormat<<std::endl;
+    std::cout<<(surface_params->dataPtr)<<endl;
+
+    return true;
   }
 
   GstPadProbeReturn
@@ -341,7 +322,19 @@ namespace YOLOv8
       return GST_PAD_PROBE_OK;
     }
 
+
+    GstMapInfo inmap = GST_MAP_INFO_INIT;
+    if (!gst_buffer_map(buf, &inmap, GST_MAP_READ)) {
+        std::cerr << "Error: input buffer mapinfo failed" << std::endl;
+        return GST_PAD_PROBE_OK;
+    }
+
+    // Extract NvBufSurface from the buffer
+    surface = (NvBufSurface *)inmap.data;
+
     batch_meta = gst_buffer_get_nvds_batch_meta(buf);
+
+    // g_print(gst_buffer_get_nvds_buf_surface(buf));
 
     if (!batch_meta)
     {
@@ -355,10 +348,8 @@ namespace YOLOv8
 
       if (frame_meta == NULL)
         continue;
-
-      display_frame_from_metadata(frame_meta);
-
-      addDisplayMeta(batch_meta, frame_meta);
+      bool aruco = display_frame_from_metadata(batch_meta, frame_meta, surface);
+      addDisplayMeta(batch_meta, frame_meta, aruco);
     }
 
     gst_buffer_unmap(buf, &in_map_info);
@@ -475,7 +466,7 @@ namespace YOLOv8
   GstElement *
   Odin::create_source_bin(guint index, gchar *uri)
   {
-    GstElement *bin = NULL, *source_element = NULL, *cap_filter1 = NULL, *cap_filter = NULL, *nvvidconv2 = NULL, *nvvidconv1 = NULL;
+    GstElement *bin = NULL, *source_element = NULL, *cap_filter1 = NULL, *cap_filter = NULL, *nvvidconv2 = NULL, *nvvidconv1 = NULL, *jpgdec = NULL;
     GstCaps *caps = NULL, *caps1 = NULL, *convertcaps = NULL;
     GstCapsFeatures *feature = NULL;
     // GstCaps
@@ -509,10 +500,11 @@ namespace YOLOv8
       {
         g_printerr("Failed to create camera elements.\n");
       }
-      caps1 = gst_caps_new_simple("video/x-raw",
-                                  "width", G_TYPE_INT, 640, "height", G_TYPE_INT,
-                                  480, "framerate", GST_TYPE_FRACTION,
-                                  30, 1, NULL);
+      caps1 = gst_caps_new_simple(INPUTFORMAT_STR,
+                                  "width", G_TYPE_INT, INPUTWIDTH, "height", G_TYPE_INT,
+                                  INPUTHEIGHT, "framerate", GST_TYPE_FRACTION,
+                                  INPUTFPS, 1, NULL);
+
       cap_filter = gst_element_factory_make("capsfilter", "caps_filter");
 
       if (!cap_filter)
@@ -522,10 +514,12 @@ namespace YOLOv8
         return NULL;
       }
 
+      if(INPUTFORMAT_STR == "image/jpeg") jpgdec = gst_element_factory_make("jpegdec", "jpegdec1");
+
       caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING,
-                                 "NV12", "width", G_TYPE_INT, 640,
-                                 "height", G_TYPE_INT, 480, "framerate",
-                                 GST_TYPE_FRACTION, 30, 1,
+                                 "NV12", "width", G_TYPE_INT, INPUTWIDTH,
+                                 "height", G_TYPE_INT, INPUTHEIGHT, "framerate",
+                                 GST_TYPE_FRACTION, INPUTFPS, 1,
                                  NULL);
 
       nvvidconv1 = gst_element_factory_make("videoconvert", "nvvidconv1");
@@ -540,20 +534,34 @@ namespace YOLOv8
 
       g_object_set(G_OBJECT(nvvidconv2), "gpu-id", 0,
                    "nvbuf-memory-type", 0, NULL);
-
-      gst_bin_add_many(GST_BIN(bin), source_element, cap_filter1,
+      if(INPUTFORMAT_STR == "image/jpeg") gst_bin_add_many(GST_BIN(bin), source_element, cap_filter1, jpgdec,
                        nvvidconv1, nvvidconv2, cap_filter, NULL);
+      else gst_bin_add_many(GST_BIN(bin), source_element, cap_filter1, nvvidconv1, nvvidconv2, cap_filter, NULL);
 
       if (!gst_element_link(source_element, cap_filter1))
       {
         g_printerr("Elements source_element and cap_filter1 could not be linked. Exiting.\n");
         return NULL;
       }
+      if(INPUTFORMAT_STR == "image/jpeg"){
+        if (!gst_element_link(cap_filter1, jpgdec))
+        {
+          g_printerr("Elements cap_filter1 and jpgdec could not be linked. Exiting.\n");
+          return NULL;
+        }
 
-      if (!gst_element_link(cap_filter1, nvvidconv1))
-      {
-        g_printerr("Elements cap_filter1 and nvvidconv1 could not be linked. Exiting.\n");
-        return NULL;
+        if (!gst_element_link(jpgdec, nvvidconv1))
+        {
+          g_printerr("Elements jpgdec and nvvidconv1 could not be linked. Exiting.\n");
+          return NULL;
+        }
+      }
+      else {
+        if (!gst_element_link(cap_filter1, nvvidconv1))
+        {
+          g_printerr("Elements cap_filter1 and nvvidconv1 could not be linked. Exiting.\n");
+          return NULL;
+        }
       }
 
       if (!gst_element_link(nvvidconv1, nvvidconv2))

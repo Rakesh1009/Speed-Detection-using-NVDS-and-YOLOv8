@@ -28,10 +28,46 @@ using namespace std::chrono;
 
 #define SOURCE_PATH "inputsources.txt"
 
+
+// Define format identifiers
+#define FORMAT_MJPEG 1
+#define FORMAT_YUYV  2
+
+// Set the input format using the integer identifiers
+#define INPUTFORMAT 2
+
+// Preprocessor logic to set width, height, and FPS based on format
+#if INPUTFORMAT == FORMAT_MJPEG
+    #define INPUTWIDTH  2560
+    #define INPUTHEIGHT 1920
+    #define INPUTFPS    30
+    #define MUXER_OUTPUT_WIDTH 2560
+    #define MUXER_OUTPUT_HEIGHT 1920
+    #define TILED_OUTPUT_WIDTH 2560
+    #define TILED_OUTPUT_HEIGHT 1920
+    #define INPUTFORMAT_STR "image/jpeg"
+#elif INPUTFORMAT == FORMAT_YUYV
+    #define INPUTWIDTH  640
+    #define INPUTHEIGHT 480
+    #define INPUTFPS    30
+    #define MUXER_OUTPUT_WIDTH 640
+    #define MUXER_OUTPUT_HEIGHT 480
+    #define TILED_OUTPUT_WIDTH 640
+    #define TILED_OUTPUT_HEIGHT 480
+    #define INPUTFORMAT_STR "video/x-raw"
+#else
+    #error "Unsupported INPUTFORMAT"
+#endif
+
+#define MULTIPLIER TILED_OUTPUT_HEIGHT/480.0
+
+//length of trail
 #define TRAIL_LEN 40
 
+//number of speeds 
 #define NUM_SPEED 30
 
+//number of tracks
 #define NUM_TRACKS 15
 
 #define PERF_INTERVAL 2
@@ -43,17 +79,9 @@ using namespace std::chrono;
 
 #define MAX_TRACKING_ID_LEN 16
 
-// Muxer Resolution
-#define MUXER_OUTPUT_WIDTH 640
-#define MUXER_OUTPUT_HEIGHT 480
-
 /* Muxer batch formation timeout, for e.g. 40 millisec. Should ideally be set
  * based on the fastest source's framerate. */
 #define MUXER_BATCH_TIMEOUT_USEC 4000000
-
-// Tiles Resolution
-#define TILED_OUTPUT_WIDTH 640
-#define TILED_OUTPUT_HEIGHT 480
 
 /* NVIDIA Decoder source pad memory feature. This feature signifies that source
  * pads having this capability will push GstBuffers containing cuda buffers. */

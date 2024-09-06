@@ -215,7 +215,7 @@ namespace YOLOv8
                         float blue, float alpha);
 
         static void
-        addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data);
+        addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data, bool aruco);
 
         static GstPadProbeReturn
         tiler_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info,
@@ -248,10 +248,10 @@ namespace YOLOv8
         setPaths(guint num_sources);
 
         static double
-        calculate_object_speed(NvDsObjectMeta *obj_meta);
+        calculate_object_speed(NvDsObjectMeta *obj_meta, bool aruco);
 
-        static void
-        display_frame_from_metadata(NvDsFrameMeta *frame_meta);
+        static bool
+        display_frame_from_metadata(NvDsBatchMeta* batch_meta, NvDsFrameMeta *frame_meta, NvBufSurface *surface);
 
         Odin()
         {
