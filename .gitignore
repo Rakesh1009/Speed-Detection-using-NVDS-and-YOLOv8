@@ -31,6 +31,6 @@ trash
 
 #Ignore .so
 *.so
-
+*.o
 #Ignore executables
 ds-yolov8

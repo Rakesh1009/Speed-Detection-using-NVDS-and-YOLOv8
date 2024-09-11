@@ -28,13 +28,14 @@ using namespace std::chrono;
 
 #define SOURCE_PATH "inputsources.txt"
 
+#define PI 3.141592653589
 
 // Define format identifiers
 #define FORMAT_MJPEG 1
 #define FORMAT_YUYV  2
 
 // Set the input format using the integer identifiers
-#define INPUTFORMAT 2
+#define INPUTFORMAT 1
 
 // Preprocessor logic to set width, height, and FPS based on format
 #if INPUTFORMAT == FORMAT_MJPEG
@@ -58,6 +59,22 @@ using namespace std::chrono;
 #else
     #error "Unsupported INPUTFORMAT"
 #endif
+
+#define DEG_TO_RAD(angle) ((angle) * PI / 180.0)
+
+#define L 1.72
+
+#define FOV_X DEG_TO_RAD(37.9)
+
+#define FOV_Y DEG_TO_RAD(30.9)
+
+#define ALPHA_Y DEG_TO_RAD(51.7)
+
+#define ALPHA_X DEG_TO_RAD(0.0)
+
+#define X_FACTOR (L/TILED_OUTPUT_WIDTH)*(sin(FOV_X)/cos(FOV_X+ALPHA_X))
+
+#define Y_FACTOR (L/TILED_OUTPUT_HEIGHT)*(sin(FOV_Y)/cos(FOV_Y+ALPHA_Y))
 
 #define MULTIPLIER TILED_OUTPUT_HEIGHT/480.0
 

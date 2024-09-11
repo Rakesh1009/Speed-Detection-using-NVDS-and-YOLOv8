@@ -159,16 +159,24 @@ namespace YOLOv8
     {
         CircularBuffer<float> prev_x;
         CircularBuffer<float> prev_y;
-        std::chrono::system_clock::time_point prev_time;
+        // std::chrono::system_clock::time_point prev_time;
         bool first_frame;
         CircularBuffer<float> speeds;
+        float last_x;
+        float last_y;
+        float last_d;
+        std::chrono::system_clock::time_point last_t;
 
         ObjectData()
             : prev_x(TRAIL_LEN),
               prev_y(TRAIL_LEN),
-              prev_time(std::chrono::system_clock::now()),
+            //   prev_time(std::chrono::system_clock::now()),
               first_frame(true),
-              speeds(NUM_SPEED)
+              speeds(NUM_SPEED),
+              last_x(0.0f),
+              last_y(0.0f),
+              last_d(0.0f),
+              last_t(std::chrono::system_clock::now())
         {
         }
     };

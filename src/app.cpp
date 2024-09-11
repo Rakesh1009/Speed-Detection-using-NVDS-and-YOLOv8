@@ -150,20 +150,59 @@ namespace YOLOv8
 
     display_meta->num_labels++;
 
+     //draw 2 liens vertical and horizxontal passing through center
+
+      NvOSD_LineParams *line_params_temp1 = &display_meta->line_params[display_meta->num_lines]; 
+
+      //vertical  
+      line_params_temp1->x1 = TILED_OUTPUT_WIDTH/2;
+      line_params_temp1->y1 = 0;
+      line_params_temp1->x2 = TILED_OUTPUT_WIDTH/2;
+      line_params_temp1->y2 = TILED_OUTPUT_HEIGHT;
+
+      line_params_temp1->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
+      line_params_temp1->line_color.red = 0.0;
+      line_params_temp1->line_color.green = 0.0;
+      line_params_temp1->line_color.blue = 0.0;
+      line_params_temp1->line_color.alpha = 1.0;
+      
+      display_meta->num_lines++;
+
+      NvOSD_LineParams *line_params_temp2 = &display_meta->line_params[display_meta->num_lines];
+
+      //horizontal
+      line_params_temp2->x1 = 0;
+      line_params_temp2->y1 = TILED_OUTPUT_HEIGHT/2;
+      line_params_temp2->x2 = TILED_OUTPUT_WIDTH;
+      line_params_temp2->y2 = TILED_OUTPUT_HEIGHT/2;
+
+      line_params_temp2->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
+      line_params_temp2->line_color.red = 0.0;
+      line_params_temp2->line_color.green = 0.0;
+      line_params_temp2->line_color.blue = 0.0;
+      line_params_temp2->line_color.alpha = 1.0;
+
+      display_meta->num_lines++;
+
+
     // Add speed information for each object
+    // int num_obj = 0;
+    // g_print("Frame number: %d\n", frame_meta->frame_num);
     for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next)
     {
       NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)(l_obj->data);
       if (!obj_meta)
         continue;
-
+      //debug lines
+      // num_obj++;
+      // g_print("Object: %d\n", num_obj);
       // Calculate or retrieve the speed of the object
       double speed = calculate_object_speed(obj_meta, aruco);
       float max_speed = 750.0;
       float red = 0.0;
       float green = 0.0;
       float blue = 0.0;
-
+      // g_print("reaching here\n");
       if (speed > max_speed)
       {
         red = 1.0;
@@ -211,6 +250,9 @@ namespace YOLOv8
       // Increment the label count
       display_meta->num_labels++;
 
+     
+
+      // g_print("reaching here even\n");
       // get prev_x and prev_y for each object
       vector<float> x_points = objectdatamap[obj_meta->object_id % NUM_TRACKS].prev_x.getValues();
       vector<float> y_points = objectdatamap[obj_meta->object_id % NUM_TRACKS].prev_y.getValues();
@@ -235,8 +277,12 @@ namespace YOLOv8
         // Increment the line count
         display_meta->num_lines++;
       }
+
+      // g_print("dying here?\n");
     }
     nvds_add_display_meta_to_frame(frame_meta, display_meta);
+      // g_print("dying hereeeeeeeeeeeeee?\n");
+    
   }
 
   double
@@ -247,48 +293,53 @@ namespace YOLOv8
     ObjectData &data = objectdatamap[object_id % NUM_TRACKS];
 
     // Calculate time elapsed
-    std::chrono::duration<double> elapsed_seconds = now - data.prev_time;
+    // std::chrono::duration<double> elapsed_seconds = now - data.prev_time;
+    std::chrono::duration<double> elapsed_seconds_t = now - data.last_t;
 
     // If first frame, initialize previous coordinates and time
     if (data.first_frame) {
         data.prev_x.addValue(obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0);
         data.prev_y.addValue(obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0);
-        data.prev_time = now;
+        // data.prev_time = now;
+        data.last_x = (obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0);
+        data.last_y = (obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0);
         data.first_frame = false;
+        data.last_d = 0.0;
+        data.last_t = now;
         return 0.0;  // No distance can be calculated from a single frame
     }
-
-    // Get the previous coordinates
-    double prev_x = data.prev_x.getMostRecentValue();
-    double prev_y = data.prev_y.getMostRecentValue();
 
     // Current coordinates
     double current_x = obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0;
     double current_y = obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0;
 
-    // Calculate horizontal distance traveled
-    double distance = current_x - prev_x;
-
-    // Update previous data
+    if(elapsed_seconds_t.count() > 0.1){
+      data.last_d = sqrt(pow(X_FACTOR*(data.last_x - current_x), 2) + pow(Y_FACTOR*(data.last_y - current_y), 2));
+      // data.last_d = abs(data.last_x - current_x)*X_FACTOR;
+      // data.last_d = abs(data.last_y - current_y)*Y_FACTOR;
+      data.last_x = current_x;
+      data.last_y = current_y;
+      data.last_t = now;
+    }
+    // g_print("X_Factor: %f, Y_Factor: %f\n", X_FACTOR, Y_FACTOR);
     data.prev_x.addValue(current_x);
     data.prev_y.addValue(current_y);
-    data.prev_time = now;
+    // data.prev_time = now;
 
     // Return the distance traveled
-    return abs(distance);
+    g_print("speed: %f, tracker id: %d\n", data.last_d/elapsed_seconds_t.count(), object_id);
+    return data.last_d/elapsed_seconds_t.count();
   }
 
   bool
   Odin::display_frame_from_metadata(NvDsBatchMeta* batch_meta, NvDsFrameMeta *frame_meta, NvBufSurface *surface)
   {
-    // Access the NvBufSurfaceParams for the specific frame
-    NvBufSurfaceParams *surface_params = &surface->surfaceList[frame_meta->batch_id];
-    g_print("Width: %d, Height: %d\n", surface_params->width, surface_params->height);
-    g_print("Frame Number: %d\n", frame_meta->frame_num);
-    std::cout<<surface_params->dataSize<<std::endl;
-    // std::cout<<surface_params->colorFormat<<std::endl;
-    std::cout<<(surface_params->dataPtr)<<endl;
-
+    // if (surface->surfaceList[frame_meta->batch_id].mappedAddr.addr[0] == NULL){
+    //       if (NvBufSurfaceMap (surface, frame_meta->batch_id, 0, NVBUF_MAP_READ) != 0){
+    //         g_print("Error: Failed to map surface\n");
+    //       }
+    // }
+    
     return true;
   }
 
@@ -353,6 +404,8 @@ namespace YOLOv8
     }
 
     gst_buffer_unmap(buf, &in_map_info);
+    // g_print("Just freed buffer\n");
+    // g_print("Frame number: %d\n", frame_meta->frame_num);
     return GST_PAD_PROBE_OK;
   }
 
