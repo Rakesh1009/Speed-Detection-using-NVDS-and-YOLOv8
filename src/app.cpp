@@ -4,9 +4,11 @@ namespace YOLOv8
 {
 
   gboolean YOLOv8::Odin::display_off = FALSE;
+  float YOLOv8::Odin::distance = 0.0f;
 
   CircularBuffer<ObjectData> YOLOv8::Odin::objectdatamap(NUM_TRACKS);
 
+  //updating fps
   void
   Odin::update_fps(gint id)
   {
@@ -24,6 +26,7 @@ namespace YOLOv8
     fps[id].fps_timer = system_clock::now();
   }
 
+  //connecting the input sources to the streammux
   int Odin::create_input_sources(gpointer pipe, gpointer mux, guint num_sources)
   {
 
@@ -40,7 +43,6 @@ namespace YOLOv8
 
         if (source.empty() || source[0] == '#')
         {
-          // g_print("Skipping line: %s\n", source.c_str());
           continue; // Skip this iteration if the line is a comment
         }
 
@@ -88,6 +90,7 @@ namespace YOLOv8
     return num_sources;
   }
 
+  //chaning the features of the bounding box
   void
   Odin::changeBBoxColor(gpointer obj_meta_data, int has_bg_color, float red, float green, float blue, float alpha)
   {
@@ -107,8 +110,9 @@ namespace YOLOv8
       obj_meta->text_params.font_params.font_size = 8 * MULTIPLIER;
   }
 
+  //adding display meta data about objects on screen like text boxes, lines etc
   void
-  Odin::addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data, bool aruco)
+  Odin::addDisplayMeta(gpointer batch_meta_data, gpointer frame_meta_data)
   {
 
     NvDsBatchMeta *batch_meta = (NvDsBatchMeta *)batch_meta_data;
@@ -136,7 +140,7 @@ namespace YOLOv8
     txt_params->y_offset = 12*MULTIPLIER;
 
     txt_params->font_params.font_name = (char *)"Serif";
-    txt_params->font_params.font_size = 6 * MULTIPLIER;
+    txt_params->font_params.font_size = 8 * MULTIPLIER;
     txt_params->font_params.font_color.red = 1.0;
     txt_params->font_params.font_color.green = 1.0;
     txt_params->font_params.font_color.blue = 1.0;
@@ -146,7 +150,7 @@ namespace YOLOv8
     txt_params->text_bg_clr.red = 0.0;
     txt_params->text_bg_clr.green = 0.0;
     txt_params->text_bg_clr.blue = 0.0;
-    txt_params->text_bg_clr.alpha = 0.5;
+    txt_params->text_bg_clr.alpha = 1.0;
 
     display_meta->num_labels++;
 
@@ -184,25 +188,22 @@ namespace YOLOv8
 
       // display_meta->num_lines++;
 
+    double speed = 0.0;
+    float max_speed = 2.0;
+    float red = 0.0;
+    float green = 0.0;
+    float blue = 0.0;
 
-    // Add speed information for each object
-    // int num_obj = 0;
-    // g_print("Frame number: %d\n", frame_meta->frame_num);
     for (NvDsMetaList *l_obj = frame_meta->obj_meta_list; l_obj != NULL; l_obj = l_obj->next)
     {
       NvDsObjectMeta *obj_meta = (NvDsObjectMeta *)(l_obj->data);
       if (!obj_meta)
         continue;
-      //debug lines
-      // num_obj++;
-      // g_print("Object: %d\n", num_obj);
-      // Calculate or retrieve the speed of the object
-      // g_print("Frame number: %d\n", frame_meta->frame_num);
-      double speed = calculate_object_speed(obj_meta, aruco);
-      float max_speed = 4.0;
-      float red = 0.0;
-      float green = 0.0;
-      float blue = 0.0;
+      
+      snprintf(obj_meta->text_params.display_text, MAX_DISPLAY_LEN, "");
+
+      speed = calculate_object_speed(obj_meta);
+      
       // g_print("reaching here\n");
       if (speed > max_speed)
       {
@@ -223,38 +224,7 @@ namespace YOLOv8
       }
 
       changeBBoxColor(obj_meta, 1, red, green, blue, 0.25);
-
-      txt_params = &display_meta->text_params[display_meta->num_labels];
-      txt_params->display_text = (char *)g_malloc0(MAX_DISPLAY_LEN);
-
-      // Format the speed information
-      snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "Speed: %.2f m/s", speed);
-
-      // Position the text above the bounding box of the object
-      txt_params->x_offset = obj_meta->rect_params.left;
-      txt_params->y_offset = obj_meta->rect_params.top + obj_meta->rect_params.height + 10;
-
-      // Set font, color, and background properties
-      txt_params->font_params.font_name = (char *)"Serif";
-      txt_params->font_params.font_size = 6 * MULTIPLIER;
-      txt_params->font_params.font_color.red = 1.0;
-      txt_params->font_params.font_color.green = 1.0;
-      txt_params->font_params.font_color.blue = 1.0;
-      txt_params->font_params.font_color.alpha = 1.0;
-
-      txt_params->set_bg_clr = 1;
-      txt_params->text_bg_clr.red = 0.0;
-      txt_params->text_bg_clr.green = 0.0;
-      txt_params->text_bg_clr.blue = 0.0;
-      txt_params->text_bg_clr.alpha = 0.5;
-
-      // Increment the label count
-      display_meta->num_labels++;
-
      
-
-      // g_print("reaching here even\n");
-      // get prev_x and prev_y for each object
       vector<float> x_points = objectdatamap[obj_meta->object_id % NUM_TRACKS].prev_x.getValues();
       vector<float> y_points = objectdatamap[obj_meta->object_id % NUM_TRACKS].prev_y.getValues();
 
@@ -278,14 +248,105 @@ namespace YOLOv8
         // Increment the line count
         display_meta->num_lines++;
       }
-
-      // g_print("dying here?\n");
     }
+
+      txt_params = &display_meta->text_params[display_meta->num_labels];
+      txt_params->display_text = (char *)g_malloc0(MAX_DISPLAY_LEN);
+
+      // Format the speed information
+      snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "Speed: %.2f m/s", speed);
+
+      txt_params->x_offset = TILED_OUTPUT_WIDTH - 150*MULTIPLIER;
+      txt_params->y_offset = 3*12*MULTIPLIER;
+
+      // Set font, color, and background properties
+      txt_params->font_params.font_name = (char *)"Serif";
+      txt_params->font_params.font_size = 8 * MULTIPLIER;
+      txt_params->font_params.font_color.red = 1.0;
+      txt_params->font_params.font_color.green = 1.0;
+      txt_params->font_params.font_color.blue = 1.0;
+      txt_params->font_params.font_color.alpha = 1.0;
+
+      txt_params->set_bg_clr = 1;
+      txt_params->text_bg_clr.red = 0.0;
+      txt_params->text_bg_clr.green = 0.0;
+      txt_params->text_bg_clr.blue = 0.0;
+      txt_params->text_bg_clr.alpha = 1.0;
+
+      // Increment the label count
+      display_meta->num_labels++;
+
+
+    txt_params = &display_meta->text_params[display_meta->num_labels];
+    txt_params->display_text = (char *)g_malloc0(MAX_DISPLAY_LEN);
+
+    offset = snprintf(txt_params->display_text, MAX_DISPLAY_LEN, "Distance: %.2f m", distance);
+
+    txt_params->x_offset = TILED_OUTPUT_WIDTH - 150*MULTIPLIER;
+    txt_params->y_offset = 12*MULTIPLIER;
+
+    txt_params->font_params.font_name = (char *)"Serif";
+    txt_params->font_params.font_size = 8 * MULTIPLIER;
+    txt_params->font_params.font_color.red = 1.0;
+    txt_params->font_params.font_color.green = 1.0;
+    txt_params->font_params.font_color.blue = 1.0;
+    txt_params->font_params.font_color.alpha = 1.0;
+
+    txt_params->set_bg_clr = 1;
+    txt_params->text_bg_clr.red = 0.0;
+    txt_params->text_bg_clr.green = 0.0;
+    txt_params->text_bg_clr.blue = 0.0;
+    txt_params->text_bg_clr.alpha = 1.0;
+
+    display_meta->num_labels++;
+
+    txt_params = &display_meta->text_params[display_meta->num_labels];
+    txt_params->display_text = (char *)g_malloc0(MAX_DISPLAY_LEN);
+
+    // std::string s;
+
+    int num_l = 0;
+    int total_length = 100;
+
+    speed = float(speed);
+
+    num_l = (speed * total_length) / max_speed;
+
+   if(num_l > total_length) {
+     num_l = total_length;
+   }
+
+    // g_print("num_l: %d\n", num_l);
+
+    std::string s(num_l, '|'); 
+    s += std::string(total_length - num_l, ' ');
+
+    offset = snprintf(txt_params->display_text, MAX_DISPLAY_LEN, s.c_str());
+
+    txt_params->x_offset = 10*MULTIPLIER;
+    txt_params->y_offset = 3*12*MULTIPLIER;
+
+    txt_params->font_params.font_name = (char *)"Serif";
+    txt_params->font_params.font_size = 8 * MULTIPLIER;
+    txt_params->font_params.font_color.red = red;
+    txt_params->font_params.font_color.green = green;
+    txt_params->font_params.font_color.blue = blue;
+    txt_params->font_params.font_color.alpha = 1.0;
+
+    txt_params->set_bg_clr = 1;
+    txt_params->text_bg_clr.red = 0.0;
+    txt_params->text_bg_clr.green = 0.0;
+    txt_params->text_bg_clr.blue = 0.0;
+    txt_params->text_bg_clr.alpha = 0.7;
+
+    display_meta->num_labels++;
+
     nvds_add_display_meta_to_frame(frame_meta, display_meta);
-      // g_print("dying hereeeeeeeeeeeeee?\n");
     
   }
 
+  
+  //convert the pixel coordinates to world coordinates using some calibration parameters and assumptions like angle of camera to floor is known and distance of camera from the floor also is known (this is along the optical axis) 
   pair<float, float> Odin::convert_coordinates(float u, float v){
     float theta = atan((2*v/(TILED_OUTPUT_WIDTH*1.0))*tan(FOV_X));
     float beta = atan((2*u/(TILED_OUTPUT_HEIGHT*1.0))*tan(FOV_Y));
@@ -294,8 +355,9 @@ namespace YOLOv8
     return make_pair(L*tan(theta)+l*sin(theta), l*cos(theta));
   }
 
+  //calculation of detection speed, using the previous and current coordinates
   double
-  Odin::calculate_object_speed(NvDsObjectMeta *obj_meta, bool aruco)
+  Odin::calculate_object_speed(NvDsObjectMeta *obj_meta)
   {
     int object_id = obj_meta->object_id;
     auto now = std::chrono::system_clock::now();
@@ -332,8 +394,6 @@ namespace YOLOv8
     
     pair<float, float> real_last = convert_coordinates(x_old, y_old);
     pair<float, float> real_current = convert_coordinates(x_new, y_new);
-
-    // g_print("X: %f, Y: %f\n", x_new, y_new);
     
     float loc = 0;
     if(elapsed_seconds_t.count() > 0.01){
@@ -351,27 +411,12 @@ namespace YOLOv8
     // data.prev_time = now;
     data.speeds.addValue(data.last_d/elapsed_seconds_t.count());
 
-    // g_print("X: %f, Y: %f\n", real_current.first, real_current.second);
+    distance += data.last_d;
 
-    // Return the distance traveled
-    g_print("speed: %f, tracker id: %d\n", data.speeds.getAverage(), object_id);
-    // g_print("x_real_current: %f, y_real_current: %f\n", x_real_current, y_real_current);
-    // return loc;
     return data.speeds.getAverage();
   }
 
-  bool
-  Odin::display_frame_from_metadata(NvDsBatchMeta* batch_meta, NvDsFrameMeta *frame_meta, NvBufSurface *surface)
-  {
-    // if (surface->surfaceList[frame_meta->batch_id].mappedAddr.addr[0] == NULL){
-    //       if (NvBufSurfaceMap (surface, frame_meta->batch_id, 0, NVBUF_MAP_READ) != 0){
-    //         g_print("Error: Failed to map surface\n");
-    //       }
-    // }
-    
-    return true;
-  }
-
+  //tiler probe function that is being used to handled the metadata before image reaches the sink
   GstPadProbeReturn
   Odin::tiler_src_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer u_data)
   {
@@ -409,12 +454,7 @@ namespace YOLOv8
         return GST_PAD_PROBE_OK;
     }
 
-    // Extract NvBufSurface from the buffer
-    surface = (NvBufSurface *)inmap.data;
-
     batch_meta = gst_buffer_get_nvds_batch_meta(buf);
-
-    // g_print(gst_buffer_get_nvds_buf_surface(buf));
 
     if (!batch_meta)
     {
@@ -428,16 +468,14 @@ namespace YOLOv8
 
       if (frame_meta == NULL)
         continue;
-      bool aruco = display_frame_from_metadata(batch_meta, frame_meta, surface);
-      addDisplayMeta(batch_meta, frame_meta, aruco);
+      addDisplayMeta(batch_meta, frame_meta);
     }
 
     gst_buffer_unmap(buf, &in_map_info);
-    // g_print("Just freed buffer\n");
-    // g_print("Frame number: %d\n", frame_meta->frame_num);
     return GST_PAD_PROBE_OK;
   }
 
+  //the bus call function that waits for error messages, warning messages and EOS
   gboolean
   Odin::bus_call(GstBus *bus, GstMessage *msg, gpointer data)
   {
@@ -494,6 +532,7 @@ namespace YOLOv8
     return TRUE;
   }
 
+  //callback function that is called when a new source pad is added
   void
   Odin::cb_newpad(GstElement *decodebin, GstPad *decoder_src_pad, gpointer data)
   {
@@ -529,6 +568,7 @@ namespace YOLOv8
     }
   }
 
+  //callback function that is called when a new child is added to the bin, this is used recursively
   void
   Odin::decodebin_child_added(GstChildProxy *child_proxy, GObject *object, gchar *name, gpointer user_data)
   {
@@ -544,7 +584,8 @@ namespace YOLOv8
       g_object_set(object, "bufapi-version", TRUE, NULL);
     }
   }
-
+  
+  //creating input sources, depending on whether the sources are file type or rtsp type or v4l2src type(webcam) input bin creation was handled
   GstElement *
   Odin::create_source_bin(guint index, gchar *uri)
   {
@@ -694,6 +735,7 @@ namespace YOLOv8
     return bin;
   }
 
+  //this is used to get the absolute path
   gchar *
   Odin::get_absolute_file_path(gchar *cfg_file_path, gchar *file_path)
   {
@@ -734,6 +776,7 @@ namespace YOLOv8
     return abs_file_path;
   }
 
+  //for setting up the tracker properties from the config file
   gboolean
   Odin::set_tracker_properties(GstElement *nvtracker)
   {
@@ -831,7 +874,9 @@ namespace YOLOv8
     return ret;
   }
 
-  int Odin::configure_element_properties(int num_sources, GstElement *streammux, GstElement *pgie_yolo_detector,
+  //to set up the properties of different plugins of the pipeline except the input sources
+  int 
+  Odin::configure_element_properties(int num_sources, GstElement *streammux, GstElement *pgie_yolo_detector,
                                          GstElement *nvtracker, GstElement *sink, GstElement *tiler)
   {
 
@@ -893,6 +938,7 @@ namespace YOLOv8
     return EXIT_SUCCESS;
   }
 
+  //to set paths for different plugins
   void Odin::setPaths(guint batch_size)
   {
 
@@ -909,12 +955,11 @@ namespace YOLOv8
   }
 }
 
+//main function call
 int main(int argc, char *argv[])
 {
 
   YOLOv8::Odin odin;
-  // delete[] odin;
-  // odin.~Odin();
   GMainLoop *loop = NULL;
   GstElement *pipeline = NULL, *streammux = NULL, *sink = NULL,
              *pgie_yolo_detector = NULL, *nvtracker = NULL,
@@ -923,8 +968,6 @@ int main(int argc, char *argv[])
 #ifdef PLATFORM_TEGRA
   GstElement *transform = NULL;
 #endif
-
-  // gboolean YOLOv8::Odin::display_off = FALSE;
 
   GstBus *bus = NULL;
   guint bus_watch_id = 0;
@@ -967,7 +1010,6 @@ int main(int argc, char *argv[])
     return -1;
   }
   gst_bin_add(GST_BIN(pipeline), streammux);
-  // odin.~Odin();
   gint sources = odin.create_input_sources(pipeline, streammux, num_sources);
   if (sources == -1)
   {
@@ -1148,7 +1190,6 @@ int main(int argc, char *argv[])
   /* Wait till pipeline encounters an error or EOS */
   g_print("Running...\n");
   g_main_loop_run(loop);
-  // g_print("didnt reach here");
   /* Out of the main loop, clean up nicely */
   g_print("Returned, stopping playback\n");
   gst_element_set_state(pipeline, GST_STATE_NULL);

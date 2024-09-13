@@ -42,19 +42,19 @@ using namespace std::chrono;
     #define INPUTWIDTH  2560
     #define INPUTHEIGHT 1920
     #define INPUTFPS    30
-    #define MUXER_OUTPUT_WIDTH 2560
-    #define MUXER_OUTPUT_HEIGHT 1920
-    #define TILED_OUTPUT_WIDTH 2560
-    #define TILED_OUTPUT_HEIGHT 1920
+    #define MUXER_OUTPUT_WIDTH INPUTWIDTH
+    #define MUXER_OUTPUT_HEIGHT INPUTHEIGHT
+    #define TILED_OUTPUT_WIDTH INPUTWIDTH
+    #define TILED_OUTPUT_HEIGHT INPUTHEIGHT
     #define INPUTFORMAT_STR "image/jpeg"
 #elif INPUTFORMAT == FORMAT_YUYV
     #define INPUTWIDTH  640
     #define INPUTHEIGHT 480
     #define INPUTFPS    30
-    #define MUXER_OUTPUT_WIDTH 640
-    #define MUXER_OUTPUT_HEIGHT 480
-    #define TILED_OUTPUT_WIDTH 640
-    #define TILED_OUTPUT_HEIGHT 480
+    #define MUXER_OUTPUT_WIDTH INPUTWIDTH
+    #define MUXER_OUTPUT_HEIGHT INPUTHEIGHT
+    #define TILED_OUTPUT_WIDTH INPUTWIDTH
+    #define TILED_OUTPUT_HEIGHT INPUTHEIGHT
     #define INPUTFORMAT_STR "video/x-raw"
 #else
     #error "Unsupported INPUTFORMAT"
@@ -87,7 +87,7 @@ using namespace std::chrono;
 
 #define PERF_INTERVAL 2
 
-#define MAX_DISPLAY_LEN 64
+#define MAX_DISPLAY_LEN 100
 
 // Network Compute Mode
 #define COMPUTE_MODE "fp16"
