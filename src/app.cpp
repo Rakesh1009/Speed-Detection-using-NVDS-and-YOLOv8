@@ -150,39 +150,39 @@ namespace YOLOv8
 
     display_meta->num_labels++;
 
-     //draw 2 liens vertical and horizxontal passing through center
+    //  //draw 2 liens vertical and horizxontal passing through center
 
-      NvOSD_LineParams *line_params_temp1 = &display_meta->line_params[display_meta->num_lines]; 
+      // NvOSD_LineParams *line_params_temp1 = &display_meta->line_params[display_meta->num_lines]; 
 
-      //vertical  
-      line_params_temp1->x1 = TILED_OUTPUT_WIDTH/2;
-      line_params_temp1->y1 = 0;
-      line_params_temp1->x2 = TILED_OUTPUT_WIDTH/2;
-      line_params_temp1->y2 = TILED_OUTPUT_HEIGHT;
+      // //vertical  
+      // line_params_temp1->x1 = TILED_OUTPUT_WIDTH/2;
+      // line_params_temp1->y1 = 0;
+      // line_params_temp1->x2 = TILED_OUTPUT_WIDTH/2;
+      // line_params_temp1->y2 = TILED_OUTPUT_HEIGHT;
 
-      line_params_temp1->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
-      line_params_temp1->line_color.red = 0.0;
-      line_params_temp1->line_color.green = 0.0;
-      line_params_temp1->line_color.blue = 0.0;
-      line_params_temp1->line_color.alpha = 1.0;
+      // line_params_temp1->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
+      // line_params_temp1->line_color.red = 0.0;
+      // line_params_temp1->line_color.green = 0.0;
+      // line_params_temp1->line_color.blue = 0.0;
+      // line_params_temp1->line_color.alpha = 1.0;
       
-      display_meta->num_lines++;
+      // display_meta->num_lines++;
 
-      NvOSD_LineParams *line_params_temp2 = &display_meta->line_params[display_meta->num_lines];
+      // NvOSD_LineParams *line_params_temp2 = &display_meta->line_params[display_meta->num_lines];
 
-      //horizontal
-      line_params_temp2->x1 = 0;
-      line_params_temp2->y1 = TILED_OUTPUT_HEIGHT/2;
-      line_params_temp2->x2 = TILED_OUTPUT_WIDTH;
-      line_params_temp2->y2 = TILED_OUTPUT_HEIGHT/2;
+      // //horizontal
+      // line_params_temp2->x1 = 0;
+      // line_params_temp2->y1 = TILED_OUTPUT_HEIGHT/2;
+      // line_params_temp2->x2 = TILED_OUTPUT_WIDTH;
+      // line_params_temp2->y2 = TILED_OUTPUT_HEIGHT/2;
 
-      line_params_temp2->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
-      line_params_temp2->line_color.red = 0.0;
-      line_params_temp2->line_color.green = 0.0;
-      line_params_temp2->line_color.blue = 0.0;
-      line_params_temp2->line_color.alpha = 1.0;
+      // line_params_temp2->line_width = 2*MULTIPLIER; // Example: Set line width to 2 pixels
+      // line_params_temp2->line_color.red = 0.0;
+      // line_params_temp2->line_color.green = 0.0;
+      // line_params_temp2->line_color.blue = 0.0;
+      // line_params_temp2->line_color.alpha = 1.0;
 
-      display_meta->num_lines++;
+      // display_meta->num_lines++;
 
 
     // Add speed information for each object
@@ -197,8 +197,9 @@ namespace YOLOv8
       // num_obj++;
       // g_print("Object: %d\n", num_obj);
       // Calculate or retrieve the speed of the object
+      // g_print("Frame number: %d\n", frame_meta->frame_num);
       double speed = calculate_object_speed(obj_meta, aruco);
-      float max_speed = 750.0;
+      float max_speed = 4.0;
       float red = 0.0;
       float green = 0.0;
       float blue = 0.0;
@@ -285,6 +286,14 @@ namespace YOLOv8
     
   }
 
+  pair<float, float> Odin::convert_coordinates(float u, float v){
+    float theta = atan((2*v/(TILED_OUTPUT_WIDTH*1.0))*tan(FOV_X));
+    float beta = atan((2*u/(TILED_OUTPUT_HEIGHT*1.0))*tan(FOV_Y));
+    float rho = asin(cos(ALPHA_Y)*cos(theta));
+    float l = L*sin(beta)/(cos(theta)*sin(rho-beta));
+    return make_pair(L*tan(theta)+l*sin(theta), l*cos(theta));
+  }
+
   double
   Odin::calculate_object_speed(NvDsObjectMeta *obj_meta, bool aruco)
   {
@@ -313,22 +322,42 @@ namespace YOLOv8
     double current_x = obj_meta->rect_params.left + obj_meta->rect_params.width / 2.0;
     double current_y = obj_meta->rect_params.top + obj_meta->rect_params.height / 2.0;
 
-    if(elapsed_seconds_t.count() > 0.1){
-      data.last_d = sqrt(pow(X_FACTOR*(data.last_x - current_x), 2) + pow(Y_FACTOR*(data.last_y - current_y), 2));
-      // data.last_d = abs(data.last_x - current_x)*X_FACTOR;
-      // data.last_d = abs(data.last_y - current_y)*Y_FACTOR;
+    // g_print("Last X: %f, Last Y: %f\n", data.last_x, data.last_y);
+    // g_print("Current X: %f, Current Y: %f\n", current_x, current_y);
+    float x_old = data.last_x-TILED_OUTPUT_WIDTH/2.0;
+    float y_old = -data.last_y+TILED_OUTPUT_HEIGHT/2.0;
+
+    float x_new = current_x-TILED_OUTPUT_WIDTH/2.0;
+    float y_new = -current_y+TILED_OUTPUT_HEIGHT/2.0;
+    
+    pair<float, float> real_last = convert_coordinates(x_old, y_old);
+    pair<float, float> real_current = convert_coordinates(x_new, y_new);
+
+    // g_print("X: %f, Y: %f\n", x_new, y_new);
+    
+    float loc = 0;
+    if(elapsed_seconds_t.count() > 0.01){
+
+      data.last_d = sqrt(pow(real_current.first - real_last.first, 2) + pow(real_current.second - real_last.second, 2));
       data.last_x = current_x;
       data.last_y = current_y;
       data.last_t = now;
     }
-    // g_print("X_Factor: %f, Y_Factor: %f\n", X_FACTOR, Y_FACTOR);
+
+    loc = sqrt(pow(real_current.first, 2) + pow(real_current.second, 2));
+
     data.prev_x.addValue(current_x);
     data.prev_y.addValue(current_y);
     // data.prev_time = now;
+    data.speeds.addValue(data.last_d/elapsed_seconds_t.count());
+
+    // g_print("X: %f, Y: %f\n", real_current.first, real_current.second);
 
     // Return the distance traveled
-    g_print("speed: %f, tracker id: %d\n", data.last_d/elapsed_seconds_t.count(), object_id);
-    return data.last_d/elapsed_seconds_t.count();
+    g_print("speed: %f, tracker id: %d\n", data.speeds.getAverage(), object_id);
+    // g_print("x_real_current: %f, y_real_current: %f\n", x_real_current, y_real_current);
+    // return loc;
+    return data.speeds.getAverage();
   }
 
   bool

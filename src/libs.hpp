@@ -62,7 +62,9 @@ using namespace std::chrono;
 
 #define DEG_TO_RAD(angle) ((angle) * PI / 180.0)
 
-#define L 1.72
+#define L 1.75
+
+//FOV_X and FOV_Y represent half FOVS in that particular axes
 
 #define FOV_X DEG_TO_RAD(37.9)
 
@@ -72,17 +74,13 @@ using namespace std::chrono;
 
 #define ALPHA_X DEG_TO_RAD(0.0)
 
-#define X_FACTOR (L/TILED_OUTPUT_WIDTH)*(sin(FOV_X)/cos(FOV_X+ALPHA_X))
-
-#define Y_FACTOR (L/TILED_OUTPUT_HEIGHT)*(sin(FOV_Y)/cos(FOV_Y+ALPHA_Y))
-
 #define MULTIPLIER TILED_OUTPUT_HEIGHT/480.0
 
 //length of trail
-#define TRAIL_LEN 40
+#define TRAIL_LEN 50
 
 //number of speeds 
-#define NUM_SPEED 30
+#define NUM_SPEED 10
 
 //number of tracks
 #define NUM_TRACKS 15

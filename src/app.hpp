@@ -13,8 +13,8 @@ namespace YOLOv8
     {
     public:
         CircularBuffer(size_t size)
-            : size(size), buffer(size), sum(0), count(0), head(0),
-              kalmanFilter(0.01, 1e-2) // Initialize Kalman Filter with process variance and measurement variance
+            : size(size), buffer(size), sum(0), count(0), head(0)
+            //   kalmanFilter(0.01, 1e-2) // Initialize Kalman Filter with process variance and measurement variance
         {
             if (size == 0)
             {
@@ -36,13 +36,35 @@ namespace YOLOv8
             sum += value;
             buffer[head] = value;
             head = (head + 1) % size;
-            kalmanFilter.update(value); // Update Kalman Filter with the new value
+            // kalmanFilter.update(value); // Update Kalman Filter with the new value
         }
 
         double getAverage() const
-        {
+        {   
+                    if (count == 0)
+            {
+                return 0; // Avoid division by zero
+            }
+
+            double weighted_sum = 0;
+            double weight_total = 0;
+
+            for (size_t i = 0; i < count; ++i)
+            {
+                // Calculate position in the buffer for each value
+                size_t pos = (head + size - count + i) % size;
+                
+                // Linear weighting: More recent values have higher weight
+                double weight = static_cast<double>(i + 1);
+                // weight = weight*weight;  // Weight increases with `i + 1`
+                weighted_sum += buffer[pos] * weight;
+                weight_total += weight;
+            }
+
+            // Return the weighted average
+            return weighted_sum / weight_total;
             // Use Kalman Filter's estimated value as the smoothed average
-            return kalmanFilter.getEstimatedValue();
+            // return kalmanFilter.getEstimatedValue();
         }
 
         vector<T> getValues()
@@ -95,37 +117,37 @@ namespace YOLOv8
         size_t count;
         size_t head;
 
-        class KalmanFilter
-        {
-        public:
-            KalmanFilter(double process_variance, double measurement_variance, double initial_estimate = 0, double initial_estimate_variance = 1)
-                : process_variance(process_variance), measurement_variance(measurement_variance),
-                  estimate(initial_estimate), estimate_variance(initial_estimate_variance) {}
+        // class KalmanFilter
+        // {
+        // public:
+        //     KalmanFilter(double process_variance, double measurement_variance, double initial_estimate = 0, double initial_estimate_variance = 1)
+        //         : process_variance(process_variance), measurement_variance(measurement_variance),
+        //           estimate(initial_estimate), estimate_variance(initial_estimate_variance) {}
 
-            void update(double measurement)
-            {
-                // Prediction
-                estimate_variance += process_variance;
+        //     void update(double measurement)
+        //     {
+        //         // Prediction
+        //         estimate_variance += process_variance;
 
-                // Update
-                double kalman_gain = estimate_variance / (estimate_variance + measurement_variance);
-                estimate += kalman_gain * (measurement - estimate);
-                estimate_variance *= (1 - kalman_gain);
-            }
+        //         // Update
+        //         double kalman_gain = estimate_variance / (estimate_variance + measurement_variance);
+        //         estimate += kalman_gain * (measurement - estimate);
+        //         estimate_variance *= (1 - kalman_gain);
+        //     }
 
-            double getEstimatedValue() const
-            {
-                return estimate;
-            }
+        //     double getEstimatedValue() const
+        //     {
+        //         return estimate;
+        //     }
 
-        private:
-            double process_variance;
-            double measurement_variance;
-            double estimate;
-            double estimate_variance;
-        };
+        // private:
+        //     double process_variance;
+        //     double measurement_variance;
+        //     double estimate;
+        //     double estimate_variance;
+        // };
 
-        KalmanFilter kalmanFilter;
+        // KalmanFilter kalmanFilter;
 
         void initialize()
         {
@@ -260,6 +282,9 @@ namespace YOLOv8
 
         static bool
         display_frame_from_metadata(NvDsBatchMeta* batch_meta, NvDsFrameMeta *frame_meta, NvBufSurface *surface);
+
+        static pair<float, float>
+        convert_coordinates(float u, float v);
 
         Odin()
         {
