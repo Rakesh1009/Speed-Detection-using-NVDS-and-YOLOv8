@@ -17,12 +17,12 @@ sudo apt install git
 Next, clone the repository
 
 ```sh
-https://github.com/Rakesh1009/toy_truck
+https://github.com/Rakesh1009/Speed-Detection-using-NVDS-and-YOLOv8
 ```
 
 ## Download the model files
 
-You can run the `download-models.sh` script to download `onnx` yolov8 models, these files are parsed by [this parser](custom_parsers/nvds_customparser_yolov8),
+You can run the `download-models.sh` script to download `onnx` yolov8 models, these files are parsed by [this parser](custom_parsers/nvds_customparser_yolov8).
 ```sh
 cd models
 chmod 0777 download-models.sh
