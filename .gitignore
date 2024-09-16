@@ -13,9 +13,6 @@ element_properties/
 #Ignore engine files
 *.engine
 
-#Ignore resources
-resources/
-
 #Ignore scripts
 get_data.sh
 
@@ -32,6 +29,7 @@ trash
 #Ignore .so
 *.so
 *.o
+
 #Ignore executables
 ds-yolov8
 
