@@ -34,3 +34,6 @@ trash
 *.o
 #Ignore executables
 ds-yolov8
+
+#Ignore models
+*.onnx
