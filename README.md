@@ -53,9 +53,9 @@ I have used docker compose to make the process easier.
 
 ## Running the Application
 
-Just starting the container using docker compose up will run the container and a script [start.sh](start.sh).
-You can change it, it has all the steps necessary to run the application, compiling the application using make, executing the generated executable.
-Before you do this though, create a file called `inputsources.txt` and paste the path of videos or rtsp url, this application also supports webcam devices which have to be syntaxed as follows.
+-Just starting the container using docker compose up will run the container and a script [start.sh](start.sh).
+-You can change it, it has all the steps necessary to run the application, compiling the application using make, executing the generated executable.
+-Before you do this though, create a file called `inputsources.txt` and paste the path of videos or rtsp url, this application also supports webcam devices which have to be syntaxed as follows.
 
 ```sh
 file:///home/astr1x/Videos/sample.mp4
