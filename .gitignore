@@ -24,7 +24,7 @@ get_data.sh
 !labels.txt
 
 #Ignore License
-LICENSE
+# LICENSE
 
 #Ignore trash
 trash
